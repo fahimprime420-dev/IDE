@@ -196,6 +196,43 @@
             </LinearLayout>
         </FrameLayout>
 
+        <LinearLayout
+            android:id="@+id/errBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="?attr/colorSurfaceContainerHigh"
+            android:gravity="center_vertical"
+            android:minHeight="40dp"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:visibility="gone">
+            <TextView
+                android:id="@+id/errMsg"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:fontFamily="monospace"
+                android:maxLines="2"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:textSize="12sp"/>
+            <Button
+                android:id="@+id/errPrev"
+                style="?attr/borderlessButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:minWidth="0dp"
+                android:text="Prev"/>
+            <Button
+                android:id="@+id/errNext"
+                style="?attr/borderlessButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:minWidth="0dp"
+                android:text="Next"/>
+        </LinearLayout>
+
         <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="44dp"
@@ -243,6 +280,65 @@
                         android:textIsSelectable="true"
                         android:textSize="12sp"/>
                 </ScrollView>
+                <LinearLayout
+                    android:id="@+id/termBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+                    <ScrollView
+                        android:id="@+id/termScroll"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1">
+                        <TextView
+                            android:id="@+id/term"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:padding="10dp"
+                            android:textColor="?attr/colorOnSurface"
+                            android:textIsSelectable="true"
+                            android:textSize="12sp"/>
+                    </ScrollView>
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="10dp">
+                        <TextView
+                            android:id="@+id/termPrompt"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:padding="4dp"
+                            android:text="~ $"
+                            android:textColor="?attr/colorPrimary"
+                            android:textSize="12sp"/>
+                        <EditText
+                            android:id="@+id/termIn"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:background="@null"
+                            android:fontFamily="monospace"
+                            android:hint="command"
+                            android:imeOptions="actionSend"
+                            android:importantForAutofill="no"
+                            android:inputType="text|textNoSuggestions"
+                            android:maxLines="1"
+                            android:textColor="?attr/colorOnSurface"
+                            android:textColorHint="?attr/colorOnSurfaceVariant"
+                            android:textSize="13sp"/>
+                        <Button
+                            android:id="@+id/termRun"
+                            style="?attr/borderlessButtonStyle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Run"/>
+                    </LinearLayout>
+                </LinearLayout>
             </FrameLayout>
             <LinearLayout
                 android:layout_width="match_parent"
@@ -261,7 +357,7 @@
                     style="?attr/borderlessButtonStyle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Install APK"
+                    android:text="Get APK"
                     android:visibility="gone"/>
                 <Button
                     android:id="@+id/pMore"

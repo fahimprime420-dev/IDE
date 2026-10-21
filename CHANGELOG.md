@@ -1,3 +1,14 @@
+# CloudIDE 3.2
+
+- Terminal tab in the bottom panel (also Project > Terminal). Runs the Android shell in your project folder and
+  remembers the folder between commands. Built-ins: `build [task]`, `push`, `apk`, `outputs`, `history`,
+  `problems`, `langs`, `open <file>`, `clear`, `help`. Stop button ends a running command. Tap the prompt for history.
+- Error bar under the editor: shows the compiler message for the line you are on, with Prev / Next to jump between
+  the problems in the file. Tap the message to copy it.
+- After a build, the APK downloaded from GitHub is offered as Install / Save to folder / Later. "Get APK" in the
+  build panel and the Build outputs list also offer Save to a folder (any folder you pick), Share and Inspect.
+- Fix: project detection used `java.nio.file`, which crashes on Android 7. Now uses APIs available on API 24.
+
 # CloudIDE 3.1
 
 ## Multi-language builds ("auto" build type, now the default for imported projects)
@@ -63,6 +74,3 @@ The workflow looks at the repo when it runs and builds everything it finds, up t
 ## Not changed on purpose
 - Other GitHub Actions stay on `@v4` (checkout, setup-gradle, cache, upload-artifact)
 - targetSdk stays at 35. Move to 36 after testing on an Android 16 device.
-
-## Fix
-- Settings dialog no longer reopens in an endless loop when the repository is entered as a full GitHub URL; URLs/.git/ssh forms are parsed and the retry is skipped if the repo is still empty.

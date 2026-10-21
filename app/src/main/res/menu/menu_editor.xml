@@ -22,6 +22,7 @@
     <item android:id="@+id/m_project" android:title="Project">
         <menu>
             <item android:id="@+id/m_quick" android:title="Quick open file"/>
+            <item android:id="@+id/m_term" android:title="Terminal"/>
             <item android:id="@+id/m_task" android:title="Build with a task..."/>
             <item android:id="@+id/m_history" android:title="Build history"/>
             <item android:id="@+id/m_wf" android:title="Regenerate build workflow"/>

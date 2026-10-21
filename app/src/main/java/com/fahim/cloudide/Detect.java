@@ -2,7 +2,9 @@ package com.fahim.cloudide;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
+import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -95,12 +97,23 @@ final class Detect {
                 if (depth < 2 && !k.getName().equals("node_modules") && scanGradle(k, depth + 1, p)) return true;
             } else if (k.getName().equals("build.gradle") || k.getName().equals("build.gradle.kts")) {
                 try {
-                    if (p.matcher(new String(Files.readAllBytes(k.toPath()), "UTF-8")).find()) return true;
+                    if (p.matcher(readText(k)).find()) return true;
                 } catch (IOException ignored) {
                 }
             }
         }
         return false;
+    }
+
+    /** Whole file as text, using only APIs available on Android 7 (no java.nio.file). */
+    private static String readText(File f) throws IOException {
+        try (InputStream in = new FileInputStream(f)) {
+            ByteArrayOutputStream o = new ByteArrayOutputStream();
+            byte[] b = new byte[8192];
+            int n;
+            while ((n = in.read(b)) > 0) o.write(b, 0, n);
+            return new String(o.toByteArray(), "UTF-8");
+        }
     }
 
     private static boolean nativeSkip(File root, String d, List<String> gradle, List<String> flutter) {
@@ -124,7 +137,7 @@ final class Detect {
         List<String> flutter = new ArrayList<>();
         for (String d : f.of("pubspec.yaml")) {
             try {
-                String t = new String(Files.readAllBytes(new File(at(root, d), "pubspec.yaml").toPath()), "UTF-8");
+                String t = readText(new File(at(root, d), "pubspec.yaml"));
                 if (Pattern.compile("^\\s*flutter:", Pattern.MULTILINE).matcher(t).find()) flutter.add(d);
             } catch (IOException ignored) {
             }

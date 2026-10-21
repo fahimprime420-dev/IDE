@@ -32,6 +32,8 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
@@ -71,6 +73,18 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
     ProjectConfig cfg;
     EditorView ed;
     TabLayout tabs, ptabs;
+    // terminal, error bar, saving files
+    Shell shell;
+    final StringBuilder termBuf = new StringBuilder();
+    final List<String> termHist = new ArrayList<>();
+    TextView term, termPrompt, errMsg;
+    EditText termIn;
+    ScrollView termScroll;
+    View termBox, errBar, termRun;
+    boolean termBusy;
+    File pendingSave;
+    final ActivityResultLauncher<String> saveLauncher =
+            registerForActivityResult(new ActivityResultContracts.CreateDocument("*/*"), uri -> onSaveTarget(uri));
     DrawerLayout drawer;
     MaterialToolbar toolbar;
     LinearProgressIndicator progress;
@@ -132,6 +146,21 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
         tree = findViewById(R.id.tree);
         results = findViewById(R.id.results);
         logScroll = findViewById(R.id.logScroll);
+        termBox = findViewById(R.id.termBox);
+        termScroll = findViewById(R.id.termScroll);
+        term = findViewById(R.id.term);
+        termPrompt = findViewById(R.id.termPrompt);
+        termIn = findViewById(R.id.termIn);
+        termRun = findViewById(R.id.termRun);
+        errBar = findViewById(R.id.errBar);
+        errMsg = findViewById(R.id.errMsg);
+        findViewById(R.id.errPrev).setOnClickListener(v -> jumpProblem(-1));
+        findViewById(R.id.errNext).setOnClickListener(v -> jumpProblem(1));
+        errMsg.setOnClickListener(v -> {
+            ((ClipboardManager) getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("error", errMsg.getText()));
+            Ui.toast(this, "Error copied");
+        });
+        termInit();
         log = findViewById(R.id.log);
         findCount = findViewById(R.id.findCount);
         projName = findViewById(R.id.projName);
@@ -189,6 +218,7 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
         ptabs.addTab(ptabs.newTab().setText("Problems"));
         ptabs.addTab(ptabs.newTab().setText("Search"));
         ptabs.addTab(ptabs.newTab().setText("Build log"));
+        ptabs.addTab(ptabs.newTab().setText("Terminal"));
         ptabs.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
             @Override
             public void onTabSelected(TabLayout.Tab t) {
@@ -244,7 +274,11 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
                 }
             }
         });
-        pInstall.setOnClickListener(v -> install(lastApk()));
+        pInstall.setOnClickListener(v -> {
+            File a = lastApk();
+            if (a == null) Ui.toast(this, "No built APK yet. Run a build first.");
+            else outputMenu(a);
+        });
         pCancel.setOnClickListener(v -> {
             if (job != null) job.cancel();
             Ui.toast(this, "Cancelling...");
@@ -369,6 +403,7 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
     }
 
     void updateSubtitle() {
+        updateErrBar();
         if (getSupportActionBar() == null) return;
         getSupportActionBar().setTitle(proj.getName());
         String s;
@@ -898,8 +933,12 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
             t.select();
             ignorePTab = false;
         }
-        results.setVisibility(tab == 2 ? View.GONE : View.VISIBLE);
+        results.setVisibility(tab >= 2 ? View.GONE : View.VISIBLE);
         logScroll.setVisibility(tab == 2 ? View.VISIBLE : View.GONE);
+        termBox.setVisibility(tab == 3 ? View.VISIBLE : View.GONE);
+        panel.getLayoutParams().height = Ui.dp(this, tab == 3 ? 340 : 260);
+        panel.requestLayout();
+        if (tab == 3) termIn.requestFocus();
         refreshResults();
     }
 
@@ -913,6 +952,7 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
             shown.addAll(all);
         } else if (ptab == 1) shown.addAll(found);
         resAd.notifyDataSetChanged();
+        updateErrBar();
     }
 
     void updatePanelTitles() {
@@ -1008,12 +1048,8 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
                 new String[]{full, cfg.branch, cfg.workflow, cfg.task, cfg.gradle, cfg.jdk, cfg.priv ? "private" : "public", "",
                         cfg.preset, cfg.artifact},
                 new boolean[]{false, false, false, false, false, false, false, true, false, false}, "Save", v -> {
-                    // Accept "owner/name", "https://github.com/owner/name(.git)", "git@github.com:owner/name.git"
-                    String rp = v[0].trim().replace('\\', '/').replace("git@github.com:", "");
-                    rp = rp.replaceFirst("(?i)^https?://", "").replaceFirst("(?i)^(www\\.)?github\\.com/", "");
-                    rp = rp.replaceAll("[?#].*$", "").replaceAll("/+$", "").replaceAll("(?i)\\.git$", "");
-                    String[] p = rp.split("/");
-                    if (p.length >= 2) {
+                    String[] p = v[0].split("/");
+                    if (p.length == 2) {
                         cfg.owner = p[0].trim();
                         cfg.repo = p[1].trim();
                     } else if (p.length == 1 && !p[0].trim().isEmpty()) cfg.repo = p[0].trim();
@@ -1031,8 +1067,7 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
                     cfg.artifact = v[9].trim();
                     cfg.save();
                     updateSubtitle();
-                    if (after != null && !cfg.repo.isEmpty()) after.run();
-                    else if (after != null) Ui.toast(this, "Enter the repository as owner/name");
+                    if (after != null) after.run();
                 });
     }
 
@@ -1088,7 +1123,7 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
         appendLog(title);
         if (ok && apk != null) {
             pInstall.setVisibility(View.VISIBLE);
-            install(apk);
+            offerApk(apk);
         } else if (ok) {
             if (job != null && job.runBuild) showOutputs();
         } else if (!ok) {
@@ -1372,16 +1407,226 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
     void outputMenu(File f) {
         final boolean apk = f.getName().endsWith(".apk");
         final List<String> a = new ArrayList<>();
+        if (apk) a.add("Install");
+        a.add("Save to a folder...");
         a.add("Share");
-        if (apk) {
-            a.add("Install");
-            a.add("Inspect (size, signatures, files)");
-        }
+        if (apk) a.add("Inspect (size, signatures, files)");
         Ui.menu(this, f.getName(), a.toArray(new String[0]), i -> {
-            if (i == 0) share(f);
-            else if (i == 1) install(f);
+            String x = a.get(i);
+            if (x.equals("Install")) install(f);
+            else if (x.startsWith("Save")) saveToFolder(f);
+            else if (x.equals("Share")) share(f);
             else ApkInspector.show(this, f);
         });
+    }
+
+    void offerApk(File apk) {
+        new MaterialAlertDialogBuilder(this).setTitle("Build succeeded")
+                .setMessage(apk.getName() + "  (" + ApkInfo.size(apk.length()) + ")\nDownloaded from GitHub into the IDE.")
+                .setPositiveButton("Install", (d, w) -> install(apk))
+                .setNeutralButton("Save to folder", (d, w) -> saveToFolder(apk))
+                .setNegativeButton("Later", null).show();
+    }
+
+    void saveToFolder(File f) {
+        pendingSave = f;
+        saveLauncher.launch(f.getName());
+    }
+
+    void onSaveTarget(Uri uri) {
+        final File src = pendingSave;
+        if (uri == null || src == null) return;
+        io.execute(() -> {
+            try (java.io.InputStream in = new java.io.FileInputStream(src);
+                 java.io.OutputStream o = getContentResolver().openOutputStream(uri)) {
+                if (o == null) throw new java.io.IOException("cannot open the chosen location");
+                byte[] b = new byte[16384];
+                int n;
+                while ((n = in.read(b)) > 0) o.write(b, 0, n);
+                runOnUiThread(() -> Ui.toast(this, "Saved " + src.getName()));
+            } catch (Exception e) {
+                runOnUiThread(() -> Ui.toast(this, "Save failed: " + e.getMessage()));
+            }
+        });
+    }
+
+    // ------------------------------------------------------------ error bar under the editor
+    List<Diag> diagsOf(Doc d) {
+        String rel = Io.rel(proj, d.file);
+        List<Diag> all = new ArrayList<>(), out = new ArrayList<>();
+        List<Diag> l = local.get(rel);
+        if (l != null) all.addAll(l);
+        all.addAll(buildDiags);
+        for (Diag x : all) if (x.line > 0 && x.file.equals(rel) && x.sev < 3) out.add(x);
+        Collections.sort(out, (a, c) -> a.line != c.line ? a.line - c.line : a.sev - c.sev);
+        return out;
+    }
+
+    void updateErrBar() {
+        if (errBar == null) return;
+        List<Diag> mine = cur == null ? new ArrayList<Diag>() : diagsOf(cur);
+        if (mine.isEmpty()) {
+            errBar.setVisibility(View.GONE);
+            return;
+        }
+        Diag at = null;
+        for (Diag d : mine) if (d.line == cursorLine && (at == null || d.sev < at.sev)) at = d;
+        errBar.setVisibility(View.VISIBLE);
+        if (at != null) {
+            errMsg.setText((at.sev == 1 ? "Error" : "Warning") + " on line " + at.line + ": " + at.msg);
+            errMsg.setTextColor(at.sev == 1 ? Ui.BAD : Ui.WARN);
+        } else {
+            errMsg.setText(mine.size() + (mine.size() == 1 ? " problem" : " problems") + " in this file. Tap Next to see them.");
+            errMsg.setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant, 0xFF888888));
+        }
+    }
+
+    void jumpProblem(int dir) {
+        if (cur == null) return;
+        List<Diag> m = diagsOf(cur);
+        if (m.isEmpty()) return;
+        Diag pick = dir > 0 ? m.get(0) : m.get(m.size() - 1); // wrap around by default
+        if (dir > 0) {
+            for (Diag d : m) if (d.line > cursorLine) { pick = d; break; }
+        } else {
+            for (int i = m.size() - 1; i >= 0; i--) if (m.get(i).line < cursorLine) { pick = m.get(i); break; }
+        }
+        ed.goToLine(pick.line);
+    }
+
+    // ------------------------------------------------------------ terminal
+    void termInit() {
+        shell = new Shell(proj);
+        termPrompt.setOnClickListener(v -> termHistoryMenu());
+        termRun.setOnClickListener(v -> {
+            if (termBusy) shell.kill();
+            else termSubmit();
+        });
+        termIn.setOnEditorActionListener((tv, a, ev) -> {
+            termSubmit();
+            return true;
+        });
+        termPrint("CloudIDE terminal. This is the Android shell. Type help.\n");
+        termUpdatePrompt();
+    }
+
+    void termUpdatePrompt() { termPrompt.setText(shell.where() + " $"); }
+
+    void termPrint(String s) {
+        termBuf.append(s);
+        if (termBuf.length() > 100000) termBuf.delete(0, termBuf.length() - 80000);
+        term.setText(termBuf);
+        termScroll.post(() -> termScroll.fullScroll(View.FOCUS_DOWN));
+    }
+
+    void termHistoryMenu() {
+        if (termHist.isEmpty()) {
+            Ui.toast(this, "No commands yet");
+            return;
+        }
+        final String[] items = termHist.toArray(new String[0]);
+        Ui.menu(this, "Recent commands", items, i -> {
+            termIn.setText(items[i]);
+            termIn.setSelection(termIn.length());
+            termIn.requestFocus();
+        });
+    }
+
+    void termSubmit() {
+        if (termBusy) return;
+        final String line = termIn.getText().toString().trim();
+        if (line.isEmpty()) return;
+        termIn.setText("");
+        termHist.remove(line);
+        termHist.add(0, line);
+        while (termHist.size() > 30) termHist.remove(termHist.size() - 1);
+        termPrint(shell.where() + " $ " + line + "\n");
+        if (termBuiltin(line)) {
+            termUpdatePrompt();
+            return;
+        }
+        termBusy = true;
+        ((TextView) termRun).setText("Stop");
+        new Thread(() -> {
+            int code = shell.run(line, s -> runOnUiThread(() -> termPrint(s)));
+            runOnUiThread(() -> {
+                if (code != 0) termPrint("[exit " + code + "]\n");
+                termBusy = false;
+                ((TextView) termRun).setText("Run");
+                termUpdatePrompt();
+            });
+        }).start();
+    }
+
+    /** Commands the IDE itself understands. Returns false for anything that should go to the Android shell. */
+    boolean termBuiltin(String line) {
+        List<String> w = Shell.words(line);
+        switch (w.get(0)) {
+            case "help":
+                termPrint("Handled by CloudIDE:\n"
+                        + "  build [task]  build on GitHub (keeps the last task if none given)\n"
+                        + "  push          push without building\n"
+                        + "  apk           install, save or inspect the last built APK\n"
+                        + "  outputs       list downloaded build files\n"
+                        + "  history       build history\n"
+                        + "  problems      show errors\n"
+                        + "  langs         languages found in this project\n"
+                        + "  open <file>   open a file in the editor\n"
+                        + "  clear         clear this screen\n"
+                        + "Everything else runs in the Android shell: ls, cat, grep, find, cp, mv, rm, mkdir, sed, wc, ps.\n"
+                        + "There is no git, compiler or package manager here, and programs cannot read keyboard input.\n");
+                return true;
+            case "clear":
+                termBuf.setLength(0);
+                term.setText("");
+                return true;
+            case "build":
+                if (w.size() > 1) {
+                    cfg.task = line.substring(5).trim();
+                    cfg.save();
+                }
+                build(true);
+                return true;
+            case "push":
+                build(false);
+                return true;
+            case "apk": {
+                File a = lastApk();
+                if (a == null) termPrint("No APK yet. Type build.\n");
+                else outputMenu(a);
+                return true;
+            }
+            case "outputs":
+                showOutputs();
+                return true;
+            case "history":
+                showHistory();
+                return true;
+            case "problems":
+                showPanel(0);
+                return true;
+            case "langs":
+                termPrint(Detect.label(proj) + "\n");
+                return true;
+            case "open":
+                if (w.size() < 2) {
+                    termPrint("usage: open <file>\n");
+                } else {
+                    try {
+                        File f = new File(w.get(1));
+                        if (!f.isAbsolute()) f = new File(shell.cwd, w.get(1));
+                        f = f.getCanonicalFile();
+                        if (!f.isFile()) termPrint("open: no such file\n");
+                        else if (!f.getPath().startsWith(proj.getCanonicalPath() + "/")) termPrint("open: only files inside the project can be opened\n");
+                        else openFile(f, 0);
+                    } catch (java.io.IOException e) {
+                        termPrint("open: " + e.getMessage() + "\n");
+                    }
+                }
+                return true;
+            default:
+                return false;
+        }
     }
 
     // ------------------------------------------------------------ toolbar menu
@@ -1422,6 +1667,7 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
             Ui.toast(this, "All files saved");
         } else if (id == R.id.m_search) searchProject();
         else if (id == R.id.m_quick) quickOpen();
+        else if (id == R.id.m_term) showPanel(3);
         else if (id == R.id.m_task) pickTask();
         else if (id == R.id.m_history) showHistory();
         else if (id == R.id.m_wf) {
