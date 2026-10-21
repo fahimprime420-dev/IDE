@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item android:id="@+id/m_save" android:icon="@drawable/ic_save" android:title="Save" app:showAsAction="ifRoom"/>
+    <item android:id="@+id/m_undo" android:icon="@drawable/ic_undo" android:title="Undo" app:showAsAction="ifRoom"/>
+    <item android:id="@+id/m_redo" android:icon="@drawable/ic_redo" android:title="Redo" app:showAsAction="ifRoom"/>
+    <item android:id="@+id/m_find" android:icon="@drawable/ic_search" android:title="Find and replace" app:showAsAction="ifRoom"/>
+    <item android:id="@+id/m_build" android:icon="@drawable/ic_play" android:title="Build on GitHub" app:showAsAction="always"/>
+    <item android:id="@+id/m_edit" android:title="Edit">
+        <menu>
+            <item android:id="@+id/m_goto" android:title="Go to line"/>
+            <item android:id="@+id/m_comment" android:title="Toggle comment"/>
+            <item android:id="@+id/m_dup" android:title="Duplicate line"/>
+            <item android:id="@+id/m_del" android:title="Delete line"/>
+            <item android:id="@+id/m_up" android:title="Move line up"/>
+            <item android:id="@+id/m_down" android:title="Move line down"/>
+            <item android:id="@+id/m_indent" android:title="Indent"/>
+            <item android:id="@+id/m_outdent" android:title="Outdent"/>
+            <item android:id="@+id/m_format" android:title="Format code"/>
+        </menu>
+    </item>
+    <item android:id="@+id/m_project" android:title="Project">
+        <menu>
+            <item android:id="@+id/m_quick" android:title="Quick open file"/>
+            <item android:id="@+id/m_task" android:title="Build with a task..."/>
+            <item android:id="@+id/m_history" android:title="Build history"/>
+            <item android:id="@+id/m_wf" android:title="Regenerate build workflow"/>
+            <item android:id="@+id/m_saveall" android:title="Save all"/>
+            <item android:id="@+id/m_search" android:title="Search in project"/>
+            <item android:id="@+id/m_push" android:title="Push only (no build)"/>
+            <item android:id="@+id/m_pull" android:title="Pull from GitHub"/>
+            <item android:id="@+id/m_install" android:title="Install last APK"/>
+            <item android:id="@+id/m_outputs" android:title="Build outputs (install, inspect, share)"/>
+            <item android:id="@+id/m_repo" android:title="Open repository in browser"/>
+            <item android:id="@+id/m_psettings" android:title="GitHub and build settings"/>
+        </menu>
+    </item>
+    <item android:id="@+id/m_view" android:title="View">
+        <menu>
+            <item android:id="@+id/m_wrap" android:title="Toggle word wrap"/>
+            <item android:id="@+id/m_log" android:title="Show problems and log"/>
+            <item android:id="@+id/m_close" android:title="Close project"/>
+        </menu>
+    </item>
+</menu>
