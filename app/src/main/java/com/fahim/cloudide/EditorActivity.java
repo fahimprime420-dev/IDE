@@ -275,9 +275,7 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
             }
         });
         pInstall.setOnClickListener(v -> {
-            File a = lastApk();
-            if (a == null) Ui.toast(this, "No built APK yet. Run a build first.");
-            else outputMenu(a);
+            getFiles();
         });
         pCancel.setOnClickListener(v -> {
             if (job != null) job.cancel();
@@ -939,6 +937,8 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
         panel.getLayoutParams().height = Ui.dp(this, tab == 3 ? 340 : 260);
         panel.requestLayout();
         if (tab == 3) termIn.requestFocus();
+        else if (tab == 0 || tab == 2)
+            ((android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(ed.getWindowToken(), 0);
         refreshResults();
     }
 
@@ -1123,9 +1123,14 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
         appendLog(title);
         if (ok && apk != null) {
             pInstall.setVisibility(View.VISIBLE);
+            ((TextView) pInstall).setText("Get APK");
             offerApk(apk);
         } else if (ok) {
-            if (job != null && job.runBuild) showOutputs();
+            if (job != null && job.runBuild) {
+                pInstall.setVisibility(View.VISIBLE);
+                ((TextView) pInstall).setText("Build files");
+                offerFiles();
+            }
         } else if (!ok) {
             if (!full.isEmpty()) {
                 String[] ls = full.split("\n");
@@ -1165,23 +1170,90 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
         }
     }
 
+    File buildsDir() { return new File(getExternalFilesDir(null), "builds/" + proj.getName()); }
+
+    /** The APK menu if the last build made one, otherwise the list of build files. */
+    void getFiles() {
+        File a = lastApk();
+        if (a != null) outputMenu(a);
+        else showOutputs();
+    }
+
     void showOutputs() {
-        List<File> files = new ArrayList<>();
-        collectFiles(new File(getExternalFilesDir(null), "builds/" + proj.getName()), files);
+        final List<File> files = new ArrayList<>();
+        collectFiles(buildsDir(), files);
         if (files.isEmpty()) {
             Ui.toast(this, "No build outputs yet. Run a build first.");
             return;
         }
-        String[] names = new String[files.size()];
-        for (int k = 0; k < names.length; k++) names[k] = files.get(k).getName() + "  (" + (files.get(k).length() / 1024) + " KB)";
-        Ui.menu(this, "Build outputs", names, i -> outputMenu(files.get(i)));
+        final boolean zip = files.size() > 1;
+        String[] names = new String[files.size() + (zip ? 1 : 0)];
+        if (zip) names[0] = "Save all " + files.size() + " files as .zip...";
+        for (int k = 0; k < files.size(); k++) names[k + (zip ? 1 : 0)] = files.get(k).getName() + "  (" + ApkInfo.size(files.get(k).length()) + ")";
+        Ui.menu(this, "Build outputs", names, i -> {
+            if (zip && i == 0) saveAllZip(files);
+            else outputMenu(files.get(i - (zip ? 1 : 0)));
+        });
+    }
+
+    /** Shown after a successful build that produced files but no APK (C, Rust, Go, Python... builds). */
+    void offerFiles() {
+        final List<File> files = new ArrayList<>();
+        collectFiles(buildsDir(), files);
+        if (files.isEmpty()) {
+            Ui.toast(this, "The build finished but produced no files. Check the Build log tab.");
+            return;
+        }
+        StringBuilder sb = new StringBuilder("This build made no APK. These files were downloaded:\n");
+        for (int i = 0; i < Math.min(6, files.size()); i++)
+            sb.append('\n').append(files.get(i).getName()).append("  (").append(ApkInfo.size(files.get(i).length())).append(')');
+        if (files.size() > 6) sb.append("\n... and ").append(files.size() - 6).append(" more");
+        sb.append("\n\nTo run a program built for Android: save it, then in Termux copy it to your home folder and run chmod +x on it.");
+        new MaterialAlertDialogBuilder(this).setTitle("Build succeeded").setMessage(sb.toString())
+                .setPositiveButton("Save to folder", (d, w) -> {
+                    if (files.size() == 1) saveToFolder(files.get(0));
+                    else saveAllZip(files);
+                })
+                .setNeutralButton("Files...", (d, w) -> showOutputs())
+                .setNegativeButton("Close", null).show();
+    }
+
+    void saveAllZip(final List<File> files) {
+        final File base = buildsDir();
+        io.execute(() -> {
+            try {
+                File z = new File(getCacheDir(), proj.getName() + "-build.zip");
+                try (java.util.zip.ZipOutputStream zo = new java.util.zip.ZipOutputStream(new java.io.FileOutputStream(z))) {
+                    byte[] b = new byte[16384];
+                    for (File f : files) {
+                        String name = f.getPath().startsWith(base.getPath() + "/") ? f.getPath().substring(base.getPath().length() + 1) : f.getName();
+                        zo.putNextEntry(new java.util.zip.ZipEntry(name));
+                        try (java.io.InputStream in = new java.io.FileInputStream(f)) {
+                            int n;
+                            while ((n = in.read(b)) > 0) zo.write(b, 0, n);
+                        }
+                        zo.closeEntry();
+                    }
+                }
+                runOnUiThread(() -> saveToFolder(z));
+            } catch (Exception e) {
+                runOnUiThread(() -> Ui.toast(this, "Could not make the zip: " + e.getMessage()));
+            }
+        });
     }
 
     void share(File f) { Ui.share(this, f); }
 
     void install(File apk) {
         if (apk == null || !apk.exists()) {
-            Ui.toast(this, "No built APK yet. Run a build first.");
+            List<File> have = new ArrayList<>();
+            collectFiles(buildsDir(), have);
+            if (have.isEmpty()) {
+                Ui.toast(this, "No built APK yet. Run a build first.");
+            } else {
+                Ui.toast(this, "The last build made no APK, only " + have.size() + " other file(s). Opening them.");
+                showOutputs();
+            }
             return;
         }
         if (Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
@@ -1668,6 +1740,13 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
         } else if (id == R.id.m_search) searchProject();
         else if (id == R.id.m_quick) quickOpen();
         else if (id == R.id.m_term) showPanel(3);
+        else if (id == R.id.m_getfiles) getFiles();
+        else if (id == R.id.m_settings) {
+            Ui.menu(this, "Settings", new String[]{"This project: GitHub and build settings", "App: theme, editor, accounts"}, i -> {
+                if (i == 0) projectSettings(null);
+                else startActivity(new Intent(this, SettingsActivity.class));
+            });
+        }
         else if (id == R.id.m_task) pickTask();
         else if (id == R.id.m_history) showHistory();
         else if (id == R.id.m_wf) {

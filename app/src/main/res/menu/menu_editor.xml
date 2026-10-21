@@ -6,6 +6,8 @@
     <item android:id="@+id/m_redo" android:icon="@drawable/ic_redo" android:title="Redo" app:showAsAction="ifRoom"/>
     <item android:id="@+id/m_find" android:icon="@drawable/ic_search" android:title="Find and replace" app:showAsAction="ifRoom"/>
     <item android:id="@+id/m_build" android:icon="@drawable/ic_play" android:title="Build on GitHub" app:showAsAction="always"/>
+    <item android:id="@+id/m_getfiles" android:title="APK and build files"/>
+    <item android:id="@+id/m_settings" android:title="Settings"/>
     <item android:id="@+id/m_edit" android:title="Edit">
         <menu>
             <item android:id="@+id/m_goto" android:title="Go to line"/>

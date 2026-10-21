@@ -1,3 +1,13 @@
+# CloudIDE 3.3
+
+- Saving build results no longer depends on an APK. A successful build that makes only files (C, Rust, Go,
+  Python... builds) now offers "Save to folder" (one file, or all files as one .zip) or "Files...".
+- Three-dot menu: new "APK and build files" and "Settings" entries (this project's GitHub and build settings,
+  or the app's theme, editor and accounts).
+- The build panel button is shown after any successful build: "Get APK" or "Build files".
+- "Install last APK" with no APK now says what the build did make and opens those files.
+- Keyboard is dismissed when you open the Problems or Build log tabs, so they are not squeezed.
+
 # CloudIDE 3.2
 
 - Terminal tab in the bottom panel (also Project > Terminal). Runs the Android shell in your project folder and
