@@ -1,6 +1,9 @@
 package com.fahim.cloudide;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Pattern;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -22,8 +25,9 @@ final class ProjectConfig {
             File f = new File(d, ".cloudide/project.json");
             if (f.exists()) {
                 JSONObject j = new JSONObject(Io.read(f));
-                c.owner = j.optString("owner");
-                c.repo = j.optString("repo");
+                c.owner = owner(j.optString("owner"));
+                String[] rp = parseRepo(j.optString("repo"));
+                c.repo = rp == null ? "" : rp[1];
                 c.branch = j.optString("branch");
                 c.workflow = j.optString("workflow", "build.yml");
                 c.task = j.optString("task", "assembleDebug");
@@ -63,6 +67,48 @@ final class ProjectConfig {
         n.put(entry);
         for (int i = 0; i < history.length() && n.length() < 25; i++) n.put(history.opt(i));
         history = n;
+    }
+
+    private static final Pattern NAME = Pattern.compile("[A-Za-z0-9._-]+");
+
+    /** Reduces "https://github.com/me", "@me" or "me" to the bare username, or "" if it is not one. */
+    static String owner(String in) {
+        if (in == null) return "";
+        String s = stripHost(in.trim());
+        int i = s.indexOf('/');
+        if (i >= 0) s = s.substring(0, i);
+        s = s.replaceFirst("^@", "").trim();
+        return NAME.matcher(s).matches() ? s : "";
+    }
+
+    private static String stripHost(String in) {
+        String s = in.replaceFirst("^git@[^:]+:", "");
+        s = s.replaceFirst("(?i)^[a-z][a-z0-9+.-]*://", "");
+        s = s.replaceFirst("^[^/@]*@", "");
+        return s.replaceFirst("(?i)^(www\\.)?github\\.com[/:]?", "");
+    }
+
+    /**
+     * Accepts "owner/name", "name", a github.com link (with .git, /tree/main, query...) or an SSH remote.
+     * Returns {owner, repo} (owner may be ""), or null when it cannot be understood.
+     */
+    static String[] parseRepo(String in) {
+        if (in == null || in.trim().isEmpty()) return null;
+        String raw = in.trim();
+        boolean hadHost = !stripHost(raw).equals(raw);
+        String s = stripHost(raw);
+        int cut = s.indexOf('?');
+        if (cut >= 0) s = s.substring(0, cut);
+        cut = s.indexOf('#');
+        if (cut >= 0) s = s.substring(0, cut);
+        List<String> parts = new ArrayList<>();
+        for (String x : s.split("/")) if (!x.trim().isEmpty()) parts.add(x.trim());
+        if (parts.isEmpty() || (hadHost && parts.size() < 2)) return null;
+        String owner = parts.size() >= 2 ? parts.get(0).replaceFirst("^@", "") : "";
+        String repo = parts.get(parts.size() >= 2 ? 1 : 0).replaceFirst("(?i)\\.git$", "");
+        if (!repo.isEmpty() && NAME.matcher(repo).matches() && (owner.isEmpty() || NAME.matcher(owner).matches()))
+            return new String[]{owner, repo};
+        return null;
     }
 
     String slug() { return dir.getName().toLowerCase().replaceAll("[^a-z0-9._-]+", "-"); }

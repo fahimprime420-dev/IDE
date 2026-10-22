@@ -120,7 +120,9 @@ public class SettingsActivity extends AppCompatActivity {
         header("GitHub");
         row("Username", owner.isEmpty() ? "Not set (default owner for new repositories)" : owner,
                 v -> Ui.input(this, "GitHub username", "Username", Prefs.owner(this), s -> {
-                    Prefs.put(this, "owner", s);
+                    String clean = ProjectConfig.owner(s);
+                    if (clean.isEmpty() && !s.isEmpty()) Ui.toast(this, "That does not look like a GitHub username");
+                    else Prefs.put(this, "owner", clean);
                     render();
                 }));
         row("Access token", tok.isEmpty() ? "Not set" : "Saved and encrypted (ends in " + tok.substring(Math.max(0, tok.length() - 4)) + ")",

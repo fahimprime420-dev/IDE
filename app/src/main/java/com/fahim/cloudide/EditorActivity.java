@@ -1038,39 +1038,10 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
 
     // ------------------------------------------------------------ GitHub: settings, build, pull
     void projectSettings(Runnable after) {
-        String o = cfg.owner.isEmpty() ? Prefs.owner(this) : cfg.owner;
-        String r = cfg.repo.isEmpty() ? cfg.slug() : cfg.repo;
-        String full = (o.isEmpty() ? "" : o + "/") + r;
-        Ui.form(this, "GitHub and build settings",
-                new String[]{"Repository (owner/name)", "Branch (blank = default)", "Workflow file", "Gradle task", "Gradle version (9.8.2 is the default, any exact version, or current)",
-                        "JDK version (17, 21, 25, 27... Temurin)", "Visibility if created (private or public)", "Token for this project (blank keeps, - clears)",
-                        "Build type: auto, gradle, rust, flutter, node or custom", "Output files pattern (blank = default for the build type)",
-                        "Java compiler for plain Java projects (javac or ecj)"},
-                new String[]{full, cfg.branch, cfg.workflow, cfg.task, cfg.gradle, cfg.jdk, cfg.priv ? "private" : "public", "",
-                        cfg.preset, cfg.artifact, cfg.compiler},
-                new boolean[]{false, false, false, false, false, false, false, true, false, false, false}, "Save", v -> {
-                    String[] p = v[0].split("/");
-                    if (p.length == 2) {
-                        cfg.owner = p[0].trim();
-                        cfg.repo = p[1].trim();
-                    } else if (p.length == 1 && !p[0].trim().isEmpty()) cfg.repo = p[0].trim();
-                    cfg.branch = v[1];
-                    cfg.workflow = v[2].isEmpty() ? "build.yml" : v[2];
-                    cfg.task = v[3].isEmpty() ? "assembleDebug" : v[3];
-                    cfg.gradle = v[4].isEmpty() ? "9.8.2" : v[4].trim();
-                    cfg.jdk = v[5].isEmpty() ? "21" : v[5].trim();
-                    cfg.priv = !v[6].equalsIgnoreCase("public");
-                    if (v[7].equals("-")) Prefs.setProjectToken(this, proj.getName(), "");
-                    else if (!v[7].isEmpty()) Prefs.setProjectToken(this, proj.getName(), v[7]);
-                    String pr = v[8].trim().toLowerCase(Locale.ROOT);
-                    if (Workflows.valid(pr)) cfg.preset = pr;
-                    else if (!pr.isEmpty()) Ui.toast(this, "Unknown build type, keeping " + cfg.preset);
-                    cfg.artifact = v[9].trim();
-                    cfg.compiler = v[10].trim().equalsIgnoreCase("ecj") ? "ecj" : "javac";
-                    cfg.save();
-                    updateSubtitle();
-                    if (after != null) after.run();
-                });
+        ProjectSettingsDialog.show(this, proj, cfg, () -> {
+            updateSubtitle();
+            if (after != null) after.run();
+        });
     }
 
     void build(boolean run) {
@@ -1086,7 +1057,10 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
             return;
         }
         if (cfg.repo.isEmpty()) {
-            projectSettings(() -> build(run));
+            // Save always fills in the repository, so this runs once and cannot loop.
+            projectSettings(() -> {
+                if (!cfg.repo.isEmpty()) build(run);
+            });
             return;
         }
         saveAll();

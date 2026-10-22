@@ -32,7 +32,7 @@ final class Prefs {
         return t.isEmpty() ? token(c) : t;
     }
 
-    static String owner(Context c) { return str(c, "owner"); }
+    static String owner(Context c) { return ProjectConfig.owner(str(c, "owner")); }
 
     static void touch(Context c, String project) { sp(c).edit().putLong("opened_" + project, System.currentTimeMillis()).apply(); }
 
