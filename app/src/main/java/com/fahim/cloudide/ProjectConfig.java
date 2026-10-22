@@ -8,7 +8,7 @@ import org.json.JSONObject;
 final class ProjectConfig {
     final File dir;
     String owner = "", repo = "", branch = "", workflow = "build.yml", task = "assembleDebug";
-    String gradle = "8.13", jdk = "17", lastStatus = "", preset = "auto", applied = "", artifact = "";
+    String gradle = "9.8.2", jdk = "21", compiler = "javac", lastStatus = "", preset = "auto", applied = "", artifact = "";
     boolean priv = true;
     JSONObject pushed = new JSONObject();
     /** Newest first; each entry has t (start, ms), ms (duration), result, task, run (number) and url. */
@@ -27,8 +27,9 @@ final class ProjectConfig {
                 c.branch = j.optString("branch");
                 c.workflow = j.optString("workflow", "build.yml");
                 c.task = j.optString("task", "assembleDebug");
-                c.gradle = j.optString("gradle", "8.13");
-                c.jdk = j.optString("jdk", "17");
+                c.gradle = j.optString("gradle", "9.8.2");
+                c.jdk = j.optString("jdk", "21");
+                c.compiler = j.optString("compiler", "javac");
                 c.priv = j.optBoolean("private", true);
                 c.lastStatus = j.optString("lastStatus");
                 c.preset = j.optString("preset", "auto");
@@ -48,7 +49,7 @@ final class ProjectConfig {
         try {
             JSONObject j = new JSONObject();
             j.put("owner", owner).put("repo", repo).put("branch", branch).put("workflow", workflow);
-            j.put("task", task).put("gradle", gradle).put("jdk", jdk).put("private", priv);
+            j.put("task", task).put("gradle", gradle).put("jdk", jdk).put("compiler", compiler).put("private", priv);
             j.put("lastStatus", lastStatus).put("pushed", pushed);
             j.put("preset", preset).put("applied", applied).put("artifact", artifact).put("history", history);
             Io.write(new File(dir, ".cloudide/project.json"), j.toString(1));

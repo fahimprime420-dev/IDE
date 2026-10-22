@@ -1,25 +1,20 @@
 plugins { id 'com.android.application' }
 android {
-    namespace 'com.fahim.cloudide'
-    compileSdk 36
+    namespace = 'com.fahim.cloudide'
+    compileSdk = 36
     defaultConfig {
-        applicationId 'com.fahim.cloudide'
-        minSdk 24
-        targetSdk 35
-        versionCode 7
-        versionName '3.3'
-    }
-    buildTypes {
-        release {
-            minifyEnabled false
-        }
+        applicationId = 'com.fahim.cloudide'
+        minSdk = 24
+        targetSdk = 35
+        versionCode = 9
+        versionName = '4.0'
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     lint {
-        abortOnError false
+        abortOnError = false
     }
 }
 dependencies {

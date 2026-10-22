@@ -257,6 +257,8 @@ final class Gh {
         JSONObject inputs = new JSONObject().put("task", c.task).put("gradle", c.gradle).put("jdk", c.jdk);
         String art = c.artifact.isEmpty() ? Tasks.artifactFor(c.task) : c.artifact;
         if (!art.isEmpty()) inputs.put("artifact", art);
+        // only the auto workflow knows this input; sending it elsewhere would make GitHub reject the whole dispatch
+        if (c.preset.equals("auto") && !c.compiler.equals("javac")) inputs.put("compiler", c.compiler);
         for (int i = 0; ; i++) {
             try {
                 try {

@@ -1042,12 +1042,13 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
         String r = cfg.repo.isEmpty() ? cfg.slug() : cfg.repo;
         String full = (o.isEmpty() ? "" : o + "/") + r;
         Ui.form(this, "GitHub and build settings",
-                new String[]{"Repository (owner/name)", "Branch (blank = default)", "Workflow file", "Gradle task", "Gradle version",
-                        "JDK version", "Visibility if created (private or public)", "Token for this project (blank keeps, - clears)",
-                        "Build type: auto, gradle, rust, flutter, node or custom", "Output files pattern (blank = default for the build type)"},
+                new String[]{"Repository (owner/name)", "Branch (blank = default)", "Workflow file", "Gradle task", "Gradle version (9.8.2 is the default, any exact version, or current)",
+                        "JDK version (17, 21, 25, 27... Temurin)", "Visibility if created (private or public)", "Token for this project (blank keeps, - clears)",
+                        "Build type: auto, gradle, rust, flutter, node or custom", "Output files pattern (blank = default for the build type)",
+                        "Java compiler for plain Java projects (javac or ecj)"},
                 new String[]{full, cfg.branch, cfg.workflow, cfg.task, cfg.gradle, cfg.jdk, cfg.priv ? "private" : "public", "",
-                        cfg.preset, cfg.artifact},
-                new boolean[]{false, false, false, false, false, false, false, true, false, false}, "Save", v -> {
+                        cfg.preset, cfg.artifact, cfg.compiler},
+                new boolean[]{false, false, false, false, false, false, false, true, false, false, false}, "Save", v -> {
                     String[] p = v[0].split("/");
                     if (p.length == 2) {
                         cfg.owner = p[0].trim();
@@ -1056,8 +1057,8 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
                     cfg.branch = v[1];
                     cfg.workflow = v[2].isEmpty() ? "build.yml" : v[2];
                     cfg.task = v[3].isEmpty() ? "assembleDebug" : v[3];
-                    cfg.gradle = v[4].isEmpty() ? "8.9" : v[4];
-                    cfg.jdk = v[5].isEmpty() ? "17" : v[5];
+                    cfg.gradle = v[4].isEmpty() ? "9.8.2" : v[4].trim();
+                    cfg.jdk = v[5].isEmpty() ? "21" : v[5].trim();
                     cfg.priv = !v[6].equalsIgnoreCase("public");
                     if (v[7].equals("-")) Prefs.setProjectToken(this, proj.getName(), "");
                     else if (!v[7].isEmpty()) Prefs.setProjectToken(this, proj.getName(), v[7]);
@@ -1065,6 +1066,7 @@ public class EditorActivity extends AppCompatActivity implements EditorView.Host
                     if (Workflows.valid(pr)) cfg.preset = pr;
                     else if (!pr.isEmpty()) Ui.toast(this, "Unknown build type, keeping " + cfg.preset);
                     cfg.artifact = v[9].trim();
+                    cfg.compiler = v[10].trim().equalsIgnoreCase("ecj") ? "ecj" : "javac";
                     cfg.save();
                     updateSubtitle();
                     if (after != null) after.run();

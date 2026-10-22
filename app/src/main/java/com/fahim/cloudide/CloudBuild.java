@@ -76,6 +76,26 @@ final class CloudBuild {
         return sb.length() == 0 ? "(build.sh printed nothing)" : "--- build.sh output ---\n" + sb;
     }
 
+    /** Checks the JDK / Gradle / Android Gradle plugin combination before anything is sent to GitHub. */
+    private String preflight() {
+        try {
+            boolean gradle = false;
+            String agp = "";
+            for (String n : new String[]{"settings.gradle", "settings.gradle.kts", "build.gradle", "build.gradle.kts"}) {
+                File f = new File(proj, n);
+                if (!f.exists()) continue;
+                gradle = true;
+                if (agp.isEmpty()) agp = Versions.findAgp(Io.read(f));
+            }
+            if (!gradle || !(cfg.preset.equals("gradle") || cfg.preset.equals("auto"))) return "";
+            File wp = new File(proj, "gradle/wrapper/gradle-wrapper.properties");
+            String wrap = wp.exists() ? Versions.wrapperVersion(Io.read(wp)) : "";
+            return Versions.preflight(cfg.jdk, cfg.gradle, agp, wrap);
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
     private void record(String result) {
         try {
             JSONObject h = new JSONObject();
@@ -102,6 +122,8 @@ final class CloudBuild {
             if (!new File(proj, "settings.gradle").exists() && !new File(proj, "settings.gradle.kts").exists())
                 cb.log("Warning: no settings.gradle found. Is this a Gradle project?");
             Workflows.ensure(ctx, proj, cfg, s -> cb.log(s));
+            String warn = preflight();
+            if (!warn.isEmpty()) cb.log(warn);
             cb.status("Preparing repository");
             String branch = gh.ensureRepo(owner, repo, cfg.branch, cfg.priv);
             cb.status("Uploading");
@@ -154,6 +176,8 @@ final class CloudBuild {
                 cb.log("Finished in " + Human.dur(System.currentTimeMillis() - t0));
                 String sum = Detect.summary(logs);
                 if (!sum.isEmpty()) cb.log(sum);
+                String tip = Hints.forLog(logs, cfg.jdk, cfg.gradle);
+                if (!tip.isEmpty()) cb.log(tip);
                 cb.done(false, null, LogParser.parse(logs), logs, "Build " + concl);
             }
         } catch (Exception e) {

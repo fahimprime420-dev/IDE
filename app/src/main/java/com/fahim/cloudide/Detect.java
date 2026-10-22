@@ -41,7 +41,7 @@ final class Detect {
                 || n.equals("build.gradle.kts") || n.equals("pubspec.yaml") || n.equals("package.json")
                 || n.equals("Cargo.toml") || n.equals("pom.xml") || n.equals("go.mod") || n.equals("pyproject.toml")
                 || n.equals("setup.py") || n.equals("CMakeLists.txt") || n.equals("Makefile") || n.equals("makefile")
-                || n.equals("GNUmakefile") || n.endsWith(".sln") || n.endsWith(".csproj");
+                || n.equals("GNUmakefile") || n.endsWith(".sln") || n.endsWith(".csproj") || n.endsWith(".java");
     }
 
     private static void walk(File dir, String rel, int depth, Found out) {
@@ -52,7 +52,7 @@ final class Detect {
             if (k.isDirectory()) {
                 if (depth < MAX_DIR_DEPTH && !PRUNE.contains(n)) walk(k, rel.equals(".") ? n : rel + "/" + n, depth + 1, out);
             } else if (wanted(n)) {
-                String key = n.endsWith(".sln") ? "*.sln" : n.endsWith(".csproj") ? "*.csproj" : n;
+                String key = n.endsWith(".sln") ? "*.sln" : n.endsWith(".csproj") ? "*.csproj" : n.endsWith(".java") ? "*.java" : n;
                 List<String> l = out.byName.get(key);
                 if (l == null) {
                     l = new ArrayList<>();
@@ -190,6 +190,7 @@ final class Detect {
             out.add(android ? "Android" : "Gradle");
         }
         if (!maven.isEmpty()) out.add("Maven");
+        if (gradle.isEmpty() && maven.isEmpty() && flutter.isEmpty() && !f.of("*.java").isEmpty()) out.add("Java");
         if (!f.of("go.mod").isEmpty()) out.add("Go");
         if (!py.isEmpty()) out.add("Python");
         if (!dotnet.isEmpty()) out.add(".NET");

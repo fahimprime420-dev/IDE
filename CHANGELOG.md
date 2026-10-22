@@ -1,3 +1,34 @@
+# CloudIDE 4.0 - current toolchain (versions checked 22 Oct 2026)
+
+| Tool | Now | Notes |
+|---|---|---|
+| Gradle | 9.8.2 | first line with Java 27 support is 9.8.0; 9.8.1 fixed three high-severity daemon issues |
+| Android Gradle plugin | 9.4.1 | needs Gradle 9.6+, supports API 37, JDK 17+ |
+| Kotlin | 2.4.10 | built into AGP 9 (no kotlin-android plugin); pinned for Compose so the compiler plugin matches |
+| JDK | 21 default, 27 selectable | Temurin 27 is published; Gradle 9.8+ runs on it |
+| compileSdk / targetSdk | 36 / 36 in new projects | this IDE app stays at target 35 until tested on Android 16 |
+| ECJ | 3.46.100 (opt-in) | plain Java projects only; Java 27 support not confirmed |
+| GitHub Actions | checkout v7, setup-java v6, upload-artifact v7, cache v6, setup-node v7, setup-gradle v5 | all Node 24. setup-gradle stays on v5: v6 defaults to a proprietary caching service |
+
+- Build files use property syntax (`compileSdk = 36`), which works in old and new Android DSLs. AGP 9 dropped the
+  old method style (`compileSdkVersion 36`).
+- New: plain Java builds. When a repo has .java files and no Gradle/Maven project, `auto` compiles them with javac,
+  or with Eclipse's ECJ when "Java compiler" is set to `ecj` in project settings. Output is a jar.
+- New: version check before every Gradle build. Warns when the JDK is newer than the Gradle can run on, when the
+  Android Gradle plugin needs a newer Gradle, or when the JDK is too old, and says which setting to change.
+  Uses the project's own Gradle wrapper version when it has one.
+- Version tips after a failed build now name the Gradle needed for the Java version in the error.
+- Existing projects keep their saved Gradle and JDK settings; only new projects get the new defaults.
+- Flutter and Node workflows keep JDK 17 (Flutter projects bring their own older Gradle wrapper).
+
+# CloudIDE 3.4
+
+- Version tips: when a build fails because of a JDK / Gradle / Android Gradle plugin / compileSdk mismatch
+  (for example "Unsupported class file major version 71" = a tool too old for Java 27), the build log ends with
+  a plain-language tip saying which setting to change.
+- Fix: leaving "Gradle version" blank in project settings fell back to the old 8.9. It now falls back to 8.13.
+- Settings labels now say what is accepted: any exact Gradle version or `current` (newest stable), any Temurin JDK.
+
 # CloudIDE 3.3
 
 - Saving build results no longer depends on an APK. A successful build that makes only files (C, Rust, Go,
